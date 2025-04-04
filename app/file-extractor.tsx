@@ -1338,7 +1338,7 @@ export default function FileExtractor() {
                             Select a file or folder
                           </p>
                           <p className="text-xs mt-1 max-w-[200px] opacity-80">
-                            Click an item in the file explorer on the left to
+                            Click an item in the file explorer to
                             view its content or actions.
                           </p>
                         </div>
