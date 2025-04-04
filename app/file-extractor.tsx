@@ -1,54 +1,33 @@
-"use client"
+"use client";
 
-import React, { useEffect, useRef, useState } from "react"
-import Editor, { OnMount } from "@monaco-editor/react"
-import { saveAs } from "file-saver"
-import { AnimationControls, motion, useAnimation } from "framer-motion" // Added for animation
-import JSZip from "jszip"
-import {
-  ArrowDown,
-  ArrowRight,
-  BookOpen,
-  Check,
-  ChevronDown,
-  ClipboardPaste,
-  Copy,
-  Download,
-  File,
-  FileText,
-  Folder,
-  FolderTree,
-  Package,
-  RefreshCw,
-} from "lucide-react"
-import * as monaco from "monaco-editor"
-import { useTheme } from "next-themes"
-import { toast } from "sonner"
+import React, { useEffect, useRef, useState } from "react";
+import Editor, { OnMount } from "@monaco-editor/react";
+import { saveAs } from "file-saver";
+import { AnimationControls, motion, useAnimation } from "framer-motion"; // Added for animation
+import JSZip from "jszip";
+import { ArrowDown, ArrowRight, BookOpen, Check, ChevronDown, ClipboardPaste, Copy, Download, File, FileText, Folder, FolderTree, Loader2 // Added Loader2 icon
+, Package, RefreshCw } from "lucide-react";
+import * as monaco from "monaco-editor";
+import { useTheme } from "next-themes";
+import { toast } from "sonner";
 
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip"
-import { Tree } from "@/components/ui/tree"
-import { BorderBeam } from "@/components/magicui/border-beam"
-import { Shell } from "@/components/shells/shell"
 
-import { demoContent } from "./demo-content"
-import { ExtractedFile, extractFilesFromText } from "./extractor"
+
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tree } from "@/components/ui/tree";
+import { BorderBeam } from "@/components/magicui/border-beam";
+import { Shell } from "@/components/shells/shell";
+
+
+
+import { demoContent } from "./demo-content";
+import { ExtractedFile, extractFilesFromText } from "./extractor";
+
 
 // --- Interface Definitions (keep existing) ---
 interface FileNode {
@@ -375,8 +354,9 @@ export default function FileExtractor() {
   const [copyButtonClicked, setCopyButtonClicked] = useState<string | null>(
     null
   ) // Track which copy button
+  const [isLoading, setIsLoading] = useState<boolean>(true) // Add loading state
 
-  const { theme } = useTheme()
+  const { resolvedTheme } = useTheme()
 
   const isInitialLoad = useRef(true)
   const inputEditorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(
@@ -394,16 +374,24 @@ export default function FileExtractor() {
   // Set editor theme based on app theme setting
   useEffect(() => {
     // Use the app's theme setting instead of just system preference
-    setEditorTheme(theme === "dark" ? "vs-dark" : "light")
-  }, [theme])
+    setEditorTheme(resolvedTheme === "dark" ? "vs-dark" : "light")
+  }, [resolvedTheme])
 
   // Load saved data from localStorage
   useEffect(() => {
+    setIsLoading(true) // Start with loading state
+    
     const savedInput = localStorage.getItem("code-extractor-input")
     if (savedInput) {
       setInputContent(savedInput)
       setHasContent(savedInput.trim().length > 0)
+    } else {
+      // No saved content, load demo content by default
+      setInputContent(demoContent)
+      setHasContent(true)
+      handleInputChange(demoContent) // Process demo content immediately
     }
+    
     const savedFiles = localStorage.getItem("code-extractor-files")
     if (savedFiles) {
       try {
@@ -424,7 +412,12 @@ export default function FileExtractor() {
         console.error("Failed to parse transform type:", e)
       }
     }
-    isInitialLoad.current = false
+    
+    // Set loading to false after initial setup
+    setTimeout(() => {
+      setIsLoading(false)
+      isInitialLoad.current = false
+    }, 300) // Brief delay to ensure UI updates
   }, [])
 
   // Save input to localStorage
@@ -532,6 +525,12 @@ export default function FileExtractor() {
   const handleInputChange = (content: string | undefined) => {
     const newContent = content || ""
     setInputContent(newContent)
+    
+    // Only set loading if there's actual content to process
+    if (newContent.trim().length > 0) {
+      setIsLoading(true) // Set loading state during processing
+    }
+    
     try {
       let newFiles = extractFilesFromText(newContent)
 
@@ -566,6 +565,8 @@ export default function FileExtractor() {
         description: "Could not parse files from input.",
       })
       setExtractionSuccess(false)
+    } finally {
+      setIsLoading(false) // Always clear loading state when done
     }
   }
 
@@ -586,13 +587,15 @@ export default function FileExtractor() {
     buildFileTree(transformedFiles)
     setTransformType(transform)
 
-    if (selectedItem) {
+    // Update selected item after transformation
+    if (selectedItem && selectedItem.content) {
+      // Match by content instead of ID - content doesn't change during renaming
       const updatedSelectedItem = transformedFiles.find(
-        (f) => f.id === selectedItem.id
+        (f) => f.content === selectedItem.content
       )
+      
       if (updatedSelectedItem) {
         handleSelectItem({
-          ...selectedItem,
           id: updatedSelectedItem.id,
           path: updatedSelectedItem.path,
           content: updatedSelectedItem.content,
@@ -600,6 +603,7 @@ export default function FileExtractor() {
           language: getLanguageFromFilename(
             updatedSelectedItem.path.split("/").pop() || ""
           ),
+          type: "file"
         })
       } else {
         setSelectedItem(null)
@@ -1090,7 +1094,14 @@ export default function FileExtractor() {
                     {/* Using grid for split */}
                     {/* File Tree */}
                     <div className="col-span-2 border-r border-border/50 overflow-hidden">
-                      {extractedFiles.length === 0 ? (
+                      {isLoading ? (
+                        <div className="flex flex-col items-center justify-center h-full text-center p-6 text-muted-foreground">
+                          <Loader2 className="h-10 w-10 mb-3 animate-spin opacity-70" />
+                          <p className="text-sm font-medium">
+                            Loading files...
+                          </p>
+                        </div>
+                      ) : extractedFiles.length === 0 ? (
                         <div className="flex flex-col items-center justify-center h-full text-center p-6 text-muted-foreground">
                           <FolderTree className="h-10 w-10 mb-3 opacity-50" />
                           <p className="text-sm font-medium">
