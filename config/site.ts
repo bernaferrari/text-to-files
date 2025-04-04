@@ -2,8 +2,7 @@ export type SiteConfig = typeof siteConfig
 
 export const siteConfig = {
   name: "Text to Files",
-  description:
-    "Extract code blocks from text, transform paths, and download files or a project zip.",
+  description: "Turn AI chat outputs into files with just a paste.",
   mainNav: [
     // {
     //   title: "Home",
