@@ -1,33 +1,55 @@
-"use client";
+"use client"
 
-import React, { useEffect, useRef, useState } from "react";
-import Editor, { OnMount } from "@monaco-editor/react";
-import { saveAs } from "file-saver";
-import { AnimationControls, motion, useAnimation } from "framer-motion"; // Added for animation
-import JSZip from "jszip";
-import { ArrowDown, ArrowRight, BookOpen, Check, ChevronDown, ClipboardPaste, Copy, Download, File, FileText, Folder, FolderTree, Loader2 // Added Loader2 icon
-, Package, RefreshCw } from "lucide-react";
-import * as monaco from "monaco-editor";
-import { useTheme } from "next-themes";
-import { toast } from "sonner";
+import React, { useEffect, useRef, useState } from "react"
+import Editor, { OnMount } from "@monaco-editor/react"
+import { saveAs } from "file-saver"
+import { AnimationControls, motion, useAnimation } from "framer-motion" // Added for animation
+import JSZip from "jszip"
+import {
+  ArrowDown,
+  ArrowRight,
+  BookOpen,
+  Check,
+  ChevronDown,
+  ClipboardPaste,
+  Copy,
+  Download,
+  File,
+  FileText,
+  Folder,
+  FolderTree,
+  Loader2, // Added Loader2 icon
+  Package,
+  RefreshCw,
+} from "lucide-react"
+import * as monaco from "monaco-editor"
+import { useTheme } from "next-themes"
+import { toast } from "sonner"
 
+import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import { Tree } from "@/components/ui/tree"
+import { BorderBeam } from "@/components/magicui/border-beam"
+import { Shell } from "@/components/shells/shell"
 
-
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Tree } from "@/components/ui/tree";
-import { BorderBeam } from "@/components/magicui/border-beam";
-import { Shell } from "@/components/shells/shell";
-
-
-
-import { demoContent } from "./demo-content";
-import { ExtractedFile, extractFilesFromText } from "./extractor";
-
+import { demoContent } from "./demo-content"
+import { ExtractedFile, extractFilesFromText } from "./extractor"
 
 // --- Interface Definitions (keep existing) ---
 interface FileNode {
@@ -354,10 +376,9 @@ export default function FileExtractor() {
   const [copyButtonClicked, setCopyButtonClicked] = useState<string | null>(
     null
   ) // Track which copy button
-  const [isLoading, setIsLoading] = useState<boolean>(true) // Add loading state
-
   const { resolvedTheme } = useTheme()
-
+  const [isLoading, setIsLoading] = useState<boolean>(true) // Add loading state
+  const selectedContentRef = useRef<string | undefined>(undefined)
   const isInitialLoad = useRef(true)
   const inputEditorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(
     null
@@ -380,7 +401,7 @@ export default function FileExtractor() {
   // Load saved data from localStorage
   useEffect(() => {
     setIsLoading(true) // Start with loading state
-    
+
     const savedInput = localStorage.getItem("code-extractor-input")
     if (savedInput) {
       setInputContent(savedInput)
@@ -391,7 +412,7 @@ export default function FileExtractor() {
       setHasContent(true)
       handleInputChange(demoContent) // Process demo content immediately
     }
-    
+
     const savedFiles = localStorage.getItem("code-extractor-files")
     if (savedFiles) {
       try {
@@ -412,7 +433,7 @@ export default function FileExtractor() {
         console.error("Failed to parse transform type:", e)
       }
     }
-    
+
     // Set loading to false after initial setup
     setTimeout(() => {
       setIsLoading(false)
@@ -525,12 +546,12 @@ export default function FileExtractor() {
   const handleInputChange = (content: string | undefined) => {
     const newContent = content || ""
     setInputContent(newContent)
-    
+
     // Only set loading if there's actual content to process
     if (newContent.trim().length > 0) {
       setIsLoading(true) // Set loading state during processing
     }
-    
+
     try {
       let newFiles = extractFilesFromText(newContent)
 
@@ -570,41 +591,75 @@ export default function FileExtractor() {
     }
   }
 
+  function isPathFolder(tree: FileNode, targetPath: string): boolean {
+    // BFS or DFS to locate the node
+    const queue = [tree]
+    while (queue.length > 0) {
+      const current = queue.shift()!
+      if (current.path === targetPath && current.type === "folder") {
+        return true
+      }
+      current.children.forEach((child) => queue.push(child))
+    }
+    return false
+  }
+
   // Transform all paths
   const transformAllPaths = (transform: TransformType) => {
     if (extractedFiles.length === 0) return
-    const originalFiles = [...extractedFiles]
-    let transformedFiles = extractedFiles.map((file) => ({
-      ...file,
-      path:
-        transform === "none"
-          ? cleanFilePath(file.path)
-          : transformPath(cleanFilePath(file.path), transform),
-    }))
 
+    // Remember the currently selected path and type (folder or file)
+    const oldSelectedPath = selectedItem?.path
+    const oldSelectedType = selectedItem?.type
+
+    // Create a map of oldPath -> newPath
+    const pathTransformMap = new Map<string, string>()
+
+    const originalFiles = [...extractedFiles]
+    let transformedFiles = extractedFiles.map((file) => {
+      const cleanPath = cleanFilePath(file.path)
+      const newPath =
+        transform === "none" ? cleanPath : transformPath(cleanPath, transform)
+      pathTransformMap.set(file.path, newPath)
+      return { ...file, path: newPath }
+    })
+
+    // Update imports
     transformedFiles = updateImportsAcrossFiles(originalFiles, transformedFiles)
+
+    // Update state
     setExtractedFiles(transformedFiles)
     buildFileTree(transformedFiles)
     setTransformType(transform)
 
-    // Update selected item after transformation
-    if (selectedItem && selectedItem.content) {
-      // Match by content instead of ID - content doesn't change during renaming
-      const updatedSelectedItem = transformedFiles.find(
-        (f) => f.content === selectedItem.content
-      )
-      
-      if (updatedSelectedItem) {
-        handleSelectItem({
-          id: updatedSelectedItem.id,
-          path: updatedSelectedItem.path,
-          content: updatedSelectedItem.content,
-          name: updatedSelectedItem.path.split("/").pop() || "",
-          language: getLanguageFromFilename(
-            updatedSelectedItem.path.split("/").pop() || ""
-          ),
-          type: "file"
-        })
+    // If we had a selected item, re-select it based on oldSelectedPath & oldSelectedType
+    if (oldSelectedPath) {
+      const newPath = pathTransformMap.get(oldSelectedPath)
+      if (newPath) {
+        // After buildFileTree, check if path is actually a folder
+        const folderCheck = isPathFolder(fileTree, newPath)
+        if (folderCheck) {
+          setSelectedItem({
+            path: newPath,
+            id: newPath,
+            type: "folder",
+          })
+        } else {
+          // It's a file, find the updated file
+          const updatedFile = transformedFiles.find(
+            (file) => file.path === newPath
+          )
+          if (updatedFile) {
+            setSelectedItem({
+              ...updatedFile,
+              id: updatedFile.path,
+              type: "file",
+              language: getLanguageFromFilename(updatedFile.path),
+            })
+          } else {
+            setSelectedItem(null)
+          }
+        }
       } else {
         setSelectedItem(null)
       }
@@ -788,13 +843,16 @@ export default function FileExtractor() {
       setSelectedItem(null)
       return
     }
-
+    
+    // IMPORTANT: Fix duplicate id property
     setSelectedItem({
       path: item.path || "",
-      type: item.type || "file", // Default to file if type missing
+      // Only use path as id consistently
+      id: item.path || "", 
+      type: item.type || "file",
       content: item.content,
       language: item.language,
-      id: item.id, // Pass ID for copy button state
+      // Removed duplicate id property that was overriding the path-based id
     })
   }
 
@@ -1117,6 +1175,7 @@ export default function FileExtractor() {
                           <Tree
                             data={treeItems}
                             onSelectChange={handleSelectItem}
+                            selectedId={selectedItem?.id} // This should now work because we're setting id consistently
                             folderIcon={Folder}
                             itemIcon={FileText}
                             className="p-2" // Add padding inside scroll area
@@ -1217,6 +1276,7 @@ export default function FileExtractor() {
                                   fontSize: 13,
                                   wordWrap: "off", // Default off
                                   scrollbar: {
+                                    alwaysConsumeMouseWheel: false,
                                     vertical: "auto",
                                     horizontal: "auto",
                                   },

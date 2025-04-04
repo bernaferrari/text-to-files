@@ -15,6 +15,7 @@ type TreeItem = {
 type TreeProps = {
   data: TreeItem[]
   initialSelectedItemId?: string
+  selectedId?: string | null
   onSelectChange?: (item: TreeItem | null) => void
   folderIcon?: React.ElementType
   itemIcon?: React.ElementType
@@ -24,17 +25,27 @@ type TreeProps = {
 export function Tree({
   data,
   initialSelectedItemId,
+  selectedId,
   onSelectChange,
   folderIcon: FolderIcon = Folder,
   itemIcon: ItemIcon = File,
   className,
 }: TreeProps) {
-  const [selectedItemId, setSelectedItemId] = React.useState<string | null>(
-    initialSelectedItemId || null
-  )
+  // Use internal state only if selectedId is not provided
+  const [internalSelectedId, setInternalSelectedId] = React.useState<
+    string | null
+  >(initialSelectedItemId || null)
+
+  // Use the controlled value if provided, otherwise use internal state
+  const effectiveSelectedId =
+    selectedId !== undefined ? selectedId : internalSelectedId
 
   const handleSelectItem = (item: TreeItem) => {
-    setSelectedItemId(item.id)
+    // Only update internal state if we're not in controlled mode
+    if (selectedId === undefined) {
+      setInternalSelectedId(item.id)
+    }
+
     if (onSelectChange) {
       onSelectChange(item)
     }
@@ -47,7 +58,7 @@ export function Tree({
           <TreeItem
             key={item.id}
             item={item}
-            selectedItemId={selectedItemId}
+            selectedItemId={effectiveSelectedId}
             onSelectItem={handleSelectItem}
             FolderIcon={FolderIcon}
             ItemIcon={ItemIcon}
