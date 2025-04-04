@@ -27,7 +27,7 @@ export const Icons = {
     >
       <path
         d="M72.917 116.667H277.084M72.917 175H231.531M72.917 233.333H176.475"
-        stroke="black"
+        stroke="currentColor"
         strokeWidth="30"
         strokeLinecap="round"
         strokeLinejoin="round"
