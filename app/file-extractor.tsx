@@ -157,10 +157,14 @@ const transformPath = (path: string, transform: TransformType): string => {
 }
 
 const cleanFilePath = (path: string): string => {
-  path = path.replace(/^\*\*`?|\*\*$|^`|`$/g, "")
-  path = path.replace(/\s*\([^)]*\)\s*$/, "").trim()
-  return path
-}
+  // Remove leading/trailing markdown like **, *, `
+  path = path.replace(/^\*\*`?|\*\*$|^`|`$/g, "").trim();
+  // Remove trailing parenthesized text like (optional)
+  path = path.replace(/\s*\([^)]*\)\s*$/, "").trim();
+  // Remove trailing colon and anything after it (like code block markers)
+  path = path.replace(/:.*$/, "").trim();
+  return path;
+};
 
 const convertToTreeItems = (nodes: FileNode[]): TreeItem[] => {
   return nodes.map((node) => {

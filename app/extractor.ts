@@ -4,74 +4,196 @@ export interface ExtractedFile {
   id: string // Unique ID for React keys
 }
 
-// Improved regex to extract file paths and code blocks from various formats:
-// - Handles **`path/to/file.tsx`** format
-// - Handles path/to/file.tsx format
-// - Handles `path/to/file.tsx` format
-// - Handles paths with descriptions in parentheses
-// - Handles special cases like ```filename.ext
+// Helper function to remove leading indent (no changes needed)
+const removeIndent = (content: string, indent: string): string => {
+  if (!indent || indent.length === 0) {
+    return content
+  }
+  const lines = content.split("\n")
+  const indentRegex = new RegExp("^" + indent)
+  const dedentedLines = lines.map((line) => line.replace(indentRegex, ""))
+  // Remove potential leading empty line after dedenting
+  if (dedentedLines[0] === "" && lines.length > 1) {
+    dedentedLines.shift()
+  }
+  // Remove potential trailing empty line
+  if (
+    dedentedLines.length > 0 &&
+    dedentedLines[dedentedLines.length - 1].trim() === ""
+  ) {
+    dedentedLines.pop()
+  }
+  return dedentedLines.join("\n")
+}
+
+// Rewritten helper function to specifically check a line for a file path using stripping
+const tryExtractPathFromLine = (line: string): string | null => {
+  console.log(`[Debug] Input line: "${line}"`) // Log initial input
+  let potentialPath = line.trim()
+  if (!potentialPath) {
+    return null
+  }
+
+  // 1. Remove optional list marker (*, -, +) and trim again
+  potentialPath = potentialPath.replace(/^[*\-+]\s+/, "").trim()
+
+  // 2. Stripping logic - colon, outer formatting, colon again, THEN backticks
+  const originalPathBeforeFormatting = potentialPath
+
+  // Strip trailing colon first
+  if (potentialPath.endsWith(":")) {
+    potentialPath = potentialPath.slice(0, -1).trim()
+  }
+
+  // Strip surrounding **
+  if (potentialPath.startsWith("**") && potentialPath.endsWith("**")) {
+    potentialPath = potentialPath.slice(2, -2).trim()
+    console.log(`[Debug] After ** strip: "${potentialPath}"`)
+  }
+  // Strip surrounding * (if not already handled by **)
+  else if (potentialPath.startsWith("*") && potentialPath.endsWith("*")) {
+    potentialPath = potentialPath.slice(1, -1).trim()
+  }
+
+  // Strip trailing colon again (in case it was inside outer formatting)
+  if (potentialPath.endsWith(":")) {
+    potentialPath = potentialPath.slice(0, -1).trim()
+  }
+
+  // Strip surrounding ` (Moved to run LAST before parenthesis/validation)
+  if (potentialPath.startsWith("`") && potentialPath.endsWith("`")) {
+    potentialPath = potentialPath.slice(1, -1).trim()
+  }
+
+  // 3. Clean potential parenthesized comments
+  potentialPath = potentialPath.replace(/\s*\([^)]*\)\s*$/, "").trim()
+
+  // 4. Validate the result
+  console.log(`[Debug] Validating path: "${potentialPath}"`)
+  const isValid =
+    potentialPath.length > 0 &&
+    !potentialPath.includes("```") &&
+    !potentialPath.includes("\n") &&
+    (potentialPath.includes(".") ||
+      potentialPath.includes("/") ||
+      /^[a-zA-Z0-9_\-]+$/.test(potentialPath)) &&
+    !potentialPath.startsWith("-")
+
+  console.log(`[Debug] Initial validation result: ${isValid}`)
+
+  if (isValid) {
+    // Final check for invalid characters that might remain
+    const looksClean = /^[a-zA-Z0-9._\-\/\s]+$/.test(potentialPath)
+    console.log(`[Debug] Final character check result: ${looksClean}`)
+    if (looksClean) {
+      console.log(`[Debug] Returning valid path: "${potentialPath}"`)
+      return potentialPath
+    } else {
+      console.log(
+        `[Debug] Path failed final character check: "${potentialPath}"`
+      )
+    }
+  } else {
+    console.log(`[Debug] Path failed initial validation: "${potentialPath}"`)
+  }
+
+  console.log("[Debug] Returning null (no valid path found).")
+  return null
+}
 
 export function extractFilesFromText(text: string): ExtractedFile[] {
   const files: ExtractedFile[] = []
+  const addedFiles = new Set<string>() // Keep track of path+content to avoid duplicates
 
-  // Main pattern for code blocks with various file path formats
+  // Updated Regex: Allow optional leading whitespace. Capture line before, indent, language, content.
+  // Group 1: Line before ``` (including potential list marker and formatting)
+  // Group 2: Indentation before ```
+  // Group 3: Language identifier
+  // Group 4: Code block content
   const codeBlockPattern =
-    /(?:\*\*`?([^*`\n]+)`?\*\*|\*\*([^*\n]+)\*\*|`([^`\n]+)`|([^\n]+))?\s*\n```([a-zA-Z0-9._\-]*)\n([\s\S]*?)\n```/g
-
-  // Special pattern for code blocks with filename as language indicator
-  const filePathAsLanguagePattern = /```([a-zA-Z0-9._\-\/]+)\n([\s\S]*?)\n```/g
+    /^\s*(.*)\n(\s*)```([a-zA-Z0-9._\-\/]*)\n([\s\S]*?)\n\s*```/gm
 
   let match
-
-  // Process regular code blocks (with file path before the block)
   while ((match = codeBlockPattern.exec(text)) !== null) {
-    // Extract file path and content
-    let filePath = match[1] || match[2] || match[3] || match[4] || ""
-    const language = match[5] || ""
-    const content = match[6] || ""
+    const lineBefore = match[1] || "" // Includes potential list marker etc.
+    const indent = match[2] || ""
+    const language = match[3] || ""
+    let content = match[4] || ""
 
-    // Clean up the file path
-    // 1. Remove markdown artifacts and backticks (**, `, **)
-    filePath = filePath.replace(/^\*\*`?|\*\*$|^`|`$/g, "")
-    // 2. Remove description in parentheses if present
-    filePath = filePath.replace(/\s*\([^)]*\)\s*$/, "").trim()
+    // 1. Try extracting path from the line before the code block (handles list markers internally now)
+    let filePath = tryExtractPathFromLine(lineBefore)
 
-    if (filePath && content) {
-      files.push({
-        path: filePath,
-        content,
-        id: crypto.randomUUID(),
-      })
-    } else if (!filePath && language && content) {
-      // If no file path, but we have a language and content, create a default file
-      files.push({
-        path: `file.${language || "txt"}`,
-        content,
-        id: crypto.randomUUID(),
-      })
+    // 2. If no path found above, check if the language identifier looks like a path
+    if (
+      !filePath &&
+      language &&
+      (language.includes("/") || language.includes("."))
+    ) {
+      // Basic check to avoid treating common languages like 'c++' or 'c#' as paths
+      if (!["c++", "c#", "f#", "vb.net"].includes(language.toLowerCase())) {
+        filePath = language
+      }
+    }
+
+    // 3. Clean the content
+    content = removeIndent(content, indent)
+
+    // 4. Determine final path (use default if necessary)
+    let finalPath = filePath
+    // Only create default path if no path was found AND content exists
+    if (!finalPath && content && content.trim().length > 0) {
+      finalPath = `file.${language || "txt"}`
+    }
+
+    // 5. Add the file if path and content are valid and not a duplicate
+    // Ensure content is not just whitespace
+    if (finalPath && content && content.trim().length > 0) {
+      const fileKey = `${finalPath}::${content}` // Use path and content for uniqueness
+      if (!addedFiles.has(fileKey)) {
+        files.push({
+          path: finalPath,
+          content,
+          id: crypto.randomUUID(),
+        })
+        addedFiles.add(fileKey)
+      }
     }
   }
 
-  // Process code blocks with filename as the language indicator
-  filePathAsLanguagePattern.lastIndex = 0
+  // --- Keep the logic for ```path/to/file blocks as a secondary check ---
+  // This handles cases where the path is *only* in the language slot
+  const filePathAsLanguagePattern =
+    /(\s*)```([a-zA-Z0-9._\-\/]+)\n([\s\S]*?)\n\s*```/g
+  filePathAsLanguagePattern.lastIndex = 0 // Reset index
   while ((match = filePathAsLanguagePattern.exec(text)) !== null) {
-    const filePath = match[1]
-    const content = match[2]
+    const indent = match[1] || ""
+    const filePath = match[2] || ""
+    let content = match[3] || ""
 
-    // Only add if the file contains a valid path separator or looks like a filename
-    if ((filePath.includes("/") || filePath.includes(".")) && content) {
-      // Check if this file was already added
-      const alreadyExists = files.some((file) => file.path === filePath)
+    // Check if this specific block was *already* processed by the main loop
+    // (This check is simplified; a more robust check might compare exact match indices)
+    const alreadyProcessed = files.some(
+      (f) => f.path === filePath && f.content === removeIndent(content, indent)
+    )
 
-      if (!alreadyExists) {
+    if (
+      !alreadyProcessed &&
+      (filePath.includes("/") || filePath.includes(".")) &&
+      content
+    ) {
+      content = removeIndent(content, indent)
+      const fileKey = `${filePath}::${content}`
+      if (!addedFiles.has(fileKey)) {
         files.push({
           path: filePath,
           content,
           id: crypto.randomUUID(),
         })
+        addedFiles.add(fileKey)
       }
     }
   }
+  // --- End of secondary check ---
 
   return files
 }
