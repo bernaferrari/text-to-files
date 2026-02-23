@@ -13,7 +13,7 @@ export const HowItWorks = () => {
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 lg:gap-8">
         <Card className="bg-card/70 border-border/50 shadow-sm hover:shadow-md transition-shadow duration-200">
-          <CardContent className="p-6">
+          <CardContent>
             <div className="flex items-center gap-3 mb-3">
               <div className="p-2 bg-emerald-100 dark:bg-emerald-900/40 rounded-lg">
                 <Code
@@ -30,7 +30,7 @@ export const HowItWorks = () => {
           </CardContent>
         </Card>
         <Card className="bg-card/70 border-border/50 shadow-sm hover:shadow-md transition-shadow duration-200">
-          <CardContent className="p-6">
+          <CardContent>
             <div className="flex items-center gap-3 mb-3">
               <div className="p-2 bg-blue-100 dark:bg-blue-900/40 rounded-lg">
                 <Zap size={20} className="text-blue-600 dark:text-blue-400" />
@@ -46,7 +46,7 @@ export const HowItWorks = () => {
           </CardContent>
         </Card>
         <Card className="bg-card/70 border-border/50 shadow-sm hover:shadow-md transition-shadow duration-200">
-          <CardContent className="p-6">
+          <CardContent>
             <div className="flex items-center gap-3 mb-3">
               <div className="p-2 bg-purple-100 dark:bg-purple-900/40 rounded-lg">
                 <RefreshCw
@@ -64,7 +64,7 @@ export const HowItWorks = () => {
           </CardContent>
         </Card>
         <Card className="bg-card/70 border-border/50 shadow-sm hover:shadow-md transition-shadow duration-200">
-          <CardContent className="p-6">
+          <CardContent>
             <div className="flex items-center gap-3 mb-3">
               <div className="p-2 bg-orange-100 dark:bg-orange-900/40 rounded-lg">
                 <Package

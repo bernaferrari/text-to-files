@@ -18,7 +18,7 @@ export const FAQ = () => {
           Frequently Asked Questions
         </h2>
       </div>
-      <Accordion type="single" collapsible className="w-full">
+      <Accordion className="w-full">
         <AccordionItem value="item-1">
           <AccordionTrigger className="text-start font-medium hover:no-underline">
             What formats are recognized for file paths?

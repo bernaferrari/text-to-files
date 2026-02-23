@@ -42,24 +42,6 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-
-  @keyframes accordion-down {
-    from {
-      height: 0;
-    }
-    to {
-      height: var(--radix-accordion-content-height);
-    }
-  }
-
-  @keyframes accordion-up {
-    from {
-      height: var(--radix-accordion-content-height);
-    }
-    to {
-      height: 0;
-    }
-  }
 }
 
 :root {
@@ -135,22 +117,16 @@
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
   }
 }
 
 @layer base {
+
   button:not([disabled]),
   [role="button"]:not([disabled]) {
     cursor: pointer;
   }
-}
-
-@utility animate-accordion-down {
-  animation: accordion-down 0.2s ease-out;
-}
-
-@utility animate-accordion-up {
-  animation: accordion-up 0.2s ease-out;
 }

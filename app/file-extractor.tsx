@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState } from "react"
 import Editor, { OnMount } from "@monaco-editor/react"
 import { saveAs } from "file-saver"
-import { AnimationControls, motion, useAnimation } from "framer-motion" // Added for animation
+import { motion, useAnimation } from "framer-motion" // Added for animation
 import JSZip from "jszip"
 import {
   ArrowDown,
@@ -22,7 +22,7 @@ import {
   Package,
   RefreshCw,
 } from "lucide-react"
-import * as monaco from "monaco-editor"
+import type * as Monaco from "monaco-editor"
 import { useTheme } from "next-themes"
 import { toast } from "sonner"
 
@@ -317,7 +317,7 @@ const AnimatedArrowRight: React.FC<AnimatedArrowProps> = ({
   className,
   inputContent,
 }) => {
-  const controls: AnimationControls = useAnimation()
+  const controls = useAnimation()
   useEffect(() => {
     const animateArrow = async (): Promise<void> => {
       await controls.start({ x: 5, transition: { duration: 0.2 } })
@@ -338,7 +338,7 @@ const AnimatedArrowDown: React.FC<AnimatedArrowProps> = ({
   className,
   inputContent,
 }) => {
-  const controls: AnimationControls = useAnimation()
+  const controls = useAnimation()
   useEffect(() => {
     const animateArrow = async (): Promise<void> => {
       await controls.start({ y: 5, transition: { duration: 0.2 } })
@@ -384,7 +384,7 @@ export default function FileExtractor() {
   const [isLoading, setIsLoading] = useState<boolean>(true) // Add loading state
   const selectedContentRef = useRef<string | undefined>(undefined)
   const isInitialLoad = useRef(true)
-  const inputEditorRef = useRef<monaco.editor.IStandaloneCodeEditor | null>(
+  const inputEditorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(
     null
   )
 
@@ -847,12 +847,12 @@ export default function FileExtractor() {
       setSelectedItem(null)
       return
     }
-    
+
     // IMPORTANT: Fix duplicate id property
     setSelectedItem({
       path: item.path || "",
       // Only use path as id consistently
-      id: item.path || "", 
+      id: item.path || "",
       type: item.type || "file",
       content: item.content,
       language: item.language,
@@ -894,16 +894,17 @@ export default function FileExtractor() {
   // Add a handler for the input editor mounting
   const handleInputEditorDidMount: OnMount = (editor, monaco) => {
     inputEditorRef.current = editor
+    const monacoWithTypeScript = monaco as unknown as typeof import("monaco-editor")
 
     // Configure Monaco to ignore certain TypeScript errors
-    monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
+    monacoWithTypeScript.typescript.javascriptDefaults.setDiagnosticsOptions({
       noSemanticValidation: false,
       noSyntaxValidation: false,
       diagnosticCodesToIgnore: [7027, 6133, 6196], // Ignore unreachable code & unused var warnings
     })
 
     // Configure Markdown settings to be less strict
-    monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
+    monacoWithTypeScript.typescript.typescriptDefaults.setDiagnosticsOptions({
       diagnosticCodesToIgnore: [7027, 6133, 6196],
     })
 
@@ -926,7 +927,7 @@ export default function FileExtractor() {
               <div className="flex items-center gap-1.5">
                 <TooltipProvider>
                   <Tooltip>
-                    <TooltipTrigger asChild>
+                    <TooltipTrigger render={
                       <Button
                         variant="ghost"
                         size="sm"
@@ -936,13 +937,15 @@ export default function FileExtractor() {
                         <ClipboardPaste className="h-3.5 w-3.5" />
                         <span className="hidden sm:inline">Paste</span>
                       </Button>
+                    }>
+
                     </TooltipTrigger>
                     <TooltipContent>Paste from Clipboard</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
                 <TooltipProvider>
                   <Tooltip>
-                    <TooltipTrigger asChild>
+                    <TooltipTrigger render={
                       <Button
                         variant="ghost"
                         size="sm"
@@ -952,6 +955,8 @@ export default function FileExtractor() {
                         <BookOpen className="h-3.5 w-3.5" />
                         <span className="hidden sm:inline">Demo</span>
                       </Button>
+                    }>
+
                     </TooltipTrigger>
                     <TooltipContent>Load Example Content</TooltipContent>
                   </Tooltip>
@@ -1037,7 +1042,7 @@ export default function FileExtractor() {
                   <TooltipProvider>
                     <Tooltip>
                       <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
+                        <DropdownMenuTrigger render={
                           <Button
                             variant="outline"
                             size="sm"
@@ -1059,6 +1064,8 @@ export default function FileExtractor() {
                             </span>
                             <ChevronDown className="h-3.5 w-3.5 ml-1 opacity-70" />
                           </Button>
+                        }>
+
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuLabel className="flex flex-col">
@@ -1081,7 +1088,7 @@ export default function FileExtractor() {
                               }
                               className={cn(
                                 transformType === type &&
-                                  "bg-accent font-medium text-accent-foreground",
+                                "bg-accent font-medium text-accent-foreground",
                                 "flex items-center justify-between"
                               )}
                             >
@@ -1120,7 +1127,7 @@ export default function FileExtractor() {
                 )}
                 <TooltipProvider>
                   <Tooltip>
-                    <TooltipTrigger asChild>
+                    <TooltipTrigger render={
                       <Button
                         variant="outline"
                         size="sm"
@@ -1136,6 +1143,8 @@ export default function FileExtractor() {
                           Download Project
                         </span>
                       </Button>
+                    }>
+
                     </TooltipTrigger>
                     <TooltipContent>Download all files as .zip</TooltipContent>
                   </Tooltip>
@@ -1206,7 +1215,7 @@ export default function FileExtractor() {
                               </div>
                               <div className="flex gap-1">
                                 <Tooltip>
-                                  <TooltipTrigger asChild>
+                                  <TooltipTrigger render={
                                     <Button
                                       variant="ghost"
                                       size="icon"
@@ -1242,11 +1251,13 @@ export default function FileExtractor() {
                                         />
                                       </div>
                                     </Button>
+                                  }>
+
                                   </TooltipTrigger>
                                   <TooltipContent>Copy Content</TooltipContent>
                                 </Tooltip>
                                 <Tooltip>
-                                  <TooltipTrigger asChild>
+                                  <TooltipTrigger render={
                                     <Button
                                       variant="ghost"
                                       size="icon"
@@ -1261,6 +1272,8 @@ export default function FileExtractor() {
                                     >
                                       <Download className="h-3.5 w-3.5" />
                                     </Button>
+                                  }>
+
                                   </TooltipTrigger>
                                   <TooltipContent>Download File</TooltipContent>
                                 </Tooltip>
