@@ -1,9 +1,10 @@
 import Link from "next/link"
-import { ArrowRightIcon, FileCode, Github, Mail, Star } from "lucide-react"
+import { ArrowRightIcon, FileCode, Mail, Star } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import { Icons } from "@/components/icons"
 import { XLogo } from "@/components/x-logo"
 
 export const About = () => {
@@ -23,7 +24,7 @@ export const About = () => {
             className="p-2 rounded-full bg-neutral-100 dark:bg-neutral-700 hover:bg-neutral-200 dark:hover:bg-neutral-600 transition-colors border dark:border-none"
             aria-label="GitHub Profile"
           >
-            <Github size={18} />
+            <Icons.gitHub className="size-[18px]" />
           </a>
           <a
             href="https://x.com/bernaferrari"
@@ -96,7 +97,7 @@ export const About = () => {
         <div className="bg-white dark:bg-neutral-800 h-full rounded-xl p-5 border border-neutral-200 dark:border-neutral-700 hover:border-amber-300 dark:hover:border-amber-700 transition-colors">
           <div className="flex items-center gap-3 mb-3">
             <div className="p-2 text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 rounded-lg">
-              <Github size={20} />
+              <Icons.gitHub className="size-5" />
             </div>
             <h3 className="font-semibold text-base">Open Source & Contact</h3>
           </div>
@@ -138,7 +139,7 @@ export const About = () => {
               rel="noopener noreferrer"
               className="flex items-center gap-2 text-blue-600 dark:text-blue-400 hover:underline"
             >
-              <Github size={16} />
+              <Icons.gitHub className="size-4" />
               <span>Report an issue on GitHub</span>
             </a>
           </div>
