@@ -788,15 +788,15 @@ export default function FileExtractor() {
     }
 
     if (filesAdded === 0) {
-      toast.error("No files found in this folder to zip")
+      toast.error("No files found in this directory to zip")
       return
     }
 
     try {
       const blob = await zip.generateAsync({ type: "blob" })
-      saveAs(blob, `${folderName || "folder"}.zip`)
+      saveAs(blob, `${folderName || "directory"}.zip`)
       toast.success(
-        `Downloaded ${folderName || "folder"} as zip (${filesAdded} files)`
+        `Downloaded ${folderName || "directory"} as zip (${filesAdded} files)`
       )
     } catch (error) {
       console.error("Failed to create zip:", error)
@@ -966,7 +966,7 @@ export default function FileExtractor() {
             <div className="relative">
               <Card
                 className={cn(
-                  "relative overflow-hidden border-muted-foreground/10 shadow-sm",
+                  "relative overflow-hidden border-muted-foreground/10 py-0 shadow-sm",
                   "bg-card", // Simpler background
                   hasContent && "border-primary/20"
                 )}
@@ -1119,7 +1119,7 @@ export default function FileExtractor() {
                         </DropdownMenuContent>
                       </DropdownMenu>
                       <TooltipContent side="bottom" className="max-w-[220px]">
-                        Change files/folders naming style (camelCase,
+                        Change files/directories naming style (camelCase,
                         kebab-case, etc.) with automatic import path updates
                       </TooltipContent>
                     </Tooltip>
@@ -1155,7 +1155,7 @@ export default function FileExtractor() {
             <div className="relative">
               <Card
                 className={cn(
-                  "overflow-hidden border-muted-foreground/10 shadow-sm",
+                  "overflow-hidden border-muted-foreground/10 py-0 shadow-sm",
                   "bg-card" // Simpler background
                 )}
                 style={{ height: PANEL_HEIGHT, minHeight: MIN_PANEL_HEIGHT }}
@@ -1315,10 +1315,10 @@ export default function FileExtractor() {
                                 const fileTxt =
                                   fileCount === 1 ? "file" : "files"
                                 const folderTxt =
-                                  folderCount === 1 ? "folder" : "folders"
+                                  folderCount === 1 ? "directory" : "directories"
 
                                 if (fileCount === 0 && folderCount === 0) {
-                                  return "Empty folder"
+                                  return "Empty directory"
                                 }
 
                                 if (fileCount === 0) {
@@ -1338,12 +1338,12 @@ export default function FileExtractor() {
                               onClick={() =>
                                 downloadFolderAsZip(
                                   selectedItem.path,
-                                  selectedItem.path.split("/").pop() || "folder"
+                                  selectedItem.path.split("/").pop() || "directory"
                                 )
                               }
                               className="gap-2"
                             >
-                              <Download className="h-4 w-4" /> Download Folder
+                              <Download className="h-4 w-4" /> Download Directory
                               (.zip)
                             </Button>
                           </div>
@@ -1352,7 +1352,7 @@ export default function FileExtractor() {
                         <div className="flex flex-col items-center justify-center h-full text-center p-6 text-muted-foreground">
                           <File className="h-10 w-10 mb-3 opacity-50" />
                           <p className="text-sm font-medium">
-                            Select a file or folder
+                            Select a file or directory
                           </p>
                           <p className="text-xs mt-1 max-w-[200px] opacity-80">
                             Click an item in the file explorer to

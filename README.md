@@ -1,6 +1,6 @@
 ![Text to Files](./public/header.png)
 
-# Text to Files
+<h1 align="center">Text to Files</h1>
 
 Quickly organize and save code snippets from text sources like LLM responses into a structured file system.
 
@@ -15,10 +15,10 @@ Tired of manually finding and copying code blocks and creating files from AI cha
 ## Key Features ✨
 
 - **Smart Extraction:** Identifies file paths and code blocks from unstructured text.
-- **File Tree View:** Visualizes the extracted folder structure.
+- **File Tree View:** Visualizes the extracted directory structure.
 - **Code Preview:** View file content with syntax highlighting.
 - **Path Transformation:** Convert names (`camelCase`, `kebab-case`, etc.) & update imports.
-- **Download Options:** Get individual files, folders, or a full project ZIP.
+- **Download Options:** Get individual files, directories, or a full project ZIP.
 - **Demo & Persistence:** Load sample data and saves your work locally.
 - **Clipboard Friendly:** Easy paste input, copy content.
 

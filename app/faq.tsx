@@ -71,7 +71,7 @@ export const FAQ = () => {
               </li>
               <li>
                 Complex relative path calculations (e.g.,
-                `../siblingFolder/file`) when *directories* are renamed might
+                `../siblingDirectory/file`) when *directories* are renamed might
                 not always be perfectly resolved across all files. Review
                 imports if you significantly restructure directories.
               </li>
