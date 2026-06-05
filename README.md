@@ -1,4 +1,4 @@
-![Text to Files Logo](./public/github-logo.png)
+![Text to Files](./public/header.png)
 
 # Text to Files
 
