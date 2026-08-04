@@ -54,9 +54,14 @@
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2"
   },
-  "packageManager": "pnpm@11.20.0",
   "engines": {
     "pnpm": ">=11",
     "node": ">=20"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "^11.0.0"
+    }
   }
 }
