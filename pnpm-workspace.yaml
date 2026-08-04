@@ -1,5 +1,6 @@
-allowBuilds:
-  core-js: set this to true or false
+packages:
+  - "."
+
 minimumReleaseAgeExclude:
   - '@next/env@16.3.0'
   - '@next/swc-darwin-arm64@16.3.0'
