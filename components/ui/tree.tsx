@@ -92,7 +92,7 @@ function TreeItem({
   const Icon = item.icon || (hasChildren ? FolderIcon : ItemIcon)
 
   const handleToggleExpand = (
-    e: React.MouseEvent<HTMLDivElement, MouseEvent>
+    e: React.MouseEvent<HTMLButtonElement, MouseEvent>
   ) => {
     e.stopPropagation()
     setExpanded(!expanded)
@@ -102,18 +102,18 @@ function TreeItem({
     <div>
       <div
         className={cn(
-          "flex items-center py-1.5 px-2 rounded-md cursor-pointer select-none",
-          isSelected
-            ? "bg-accent text-accent-foreground"
-            : "hover:bg-accent/50",
+          "flex items-center rounded-md select-none",
+          isSelected ? "bg-primary/8 text-foreground" : "hover:bg-accent/50",
           level === 0 ? "mt-1" : "mt-0.5"
         )}
-        style={{ paddingLeft: `${(level + 1) * 12}px` }}
-        onClick={() => onSelectItem(item)}
+        style={{ paddingLeft: `${level * 12 + 4}px` }}
       >
         {hasChildren ? (
-          <div
-            className="mr-1 rounded hover:bg-muted w-4 h-4 flex items-center justify-center"
+          <button
+            type="button"
+            aria-label={`${expanded ? "Collapse" : "Expand"} ${item.name}`}
+            aria-expanded={expanded}
+            className="rounded hover:bg-muted w-6 h-8 shrink-0 flex items-center justify-center focus-visible:outline-2"
             onClick={handleToggleExpand}
           >
             {expanded ? (
@@ -121,15 +121,23 @@ function TreeItem({
             ) : (
               <ChevronRight className="h-3.5 w-3.5" />
             )}
-          </div>
+          </button>
         ) : (
-          <div className="mr-1 w-4" />
+          <span className="w-4 shrink-0" />
         )}
-        <Icon
-          className="h-4 w-4 mr-2 text-muted-foreground"
-          aria-hidden="true"
-        />
-        <span className="text-sm truncate">{item.name}</span>
+        <button
+          type="button"
+          onClick={() => onSelectItem(item)}
+          aria-pressed={isSelected}
+          title={item.name}
+          className="flex min-w-0 flex-1 items-center py-2 pr-2 text-left focus-visible:outline-2"
+        >
+          <Icon
+            className="h-4 w-4 mr-2 text-muted-foreground"
+            aria-hidden="true"
+          />
+          <span className="text-[13px] truncate">{item.name}</span>
+        </button>
       </div>
       {hasChildren && expanded && (
         <div>

@@ -1,34 +1,25 @@
 "use client"
 
 import React, { useEffect, useRef, useState } from "react"
-import Editor, { OnMount } from "@monaco-editor/react"
+import Editor from "@monaco-editor/react"
 import { saveAs } from "file-saver"
-import { motion, useAnimation } from "framer-motion" // Added for animation
 import JSZip from "jszip"
 import {
-  ArrowDown,
-  ArrowRight,
-  BookOpen,
+  ArrowLeft,
   Check,
   ChevronDown,
   ClipboardPaste,
   Copy,
   Download,
-  File,
   FileText,
   Folder,
   FolderTree,
-  Loader2, // Added Loader2 icon
-  Package,
-  RefreshCw,
 } from "lucide-react"
-import type * as Monaco from "monaco-editor"
 import { useTheme } from "next-themes"
 import { toast } from "sonner"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,16 +28,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   Tooltip,
   TooltipContent,
-  TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { Tree } from "@/components/ui/tree"
 import { BorderBeam } from "@/components/magicui/border-beam"
-import { Shell } from "@/components/shells/shell"
 
 import { demoContent } from "./demo-content"
 import { ExtractedFile, extractFilesFromText } from "./extractor"
@@ -74,11 +62,7 @@ interface TreeItem {
 }
 
 type TransformType =
-  | "camelCase"
-  | "kebabCase"
-  | "snakeCase"
-  | "pascalCase"
-  | "none"
+  "camelCase" | "kebabCase" | "snakeCase" | "pascalCase" | "none"
 
 // --- Helper Functions (keep existing: getLanguageFromFilename, transformations, transformPath, cleanFilePath, convertToTreeItems, updateImportsInContent, updateImportsAcrossFiles) ---
 const getLanguageFromFilename = (filename: string): string => {
@@ -158,13 +142,13 @@ const transformPath = (path: string, transform: TransformType): string => {
 
 const cleanFilePath = (path: string): string => {
   // Remove leading/trailing markdown like **, *, `
-  path = path.replace(/^\*\*`?|\*\*$|^`|`$/g, "").trim();
+  path = path.replace(/^\*\*`?|\*\*$|^`|`$/g, "").trim()
   // Remove trailing parenthesized text like (optional)
-  path = path.replace(/\s*\([^)]*\)\s*$/, "").trim();
+  path = path.replace(/\s*\([^)]*\)\s*$/, "").trim()
   // Remove trailing colon and anything after it (like code block markers)
-  path = path.replace(/:.*$/, "").trim();
-  return path;
-};
+  path = path.replace(/:.*$/, "").trim()
+  return path
+}
 
 const convertToTreeItems = (nodes: FileNode[]): TreeItem[] => {
   return nodes.map((node) => {
@@ -177,7 +161,7 @@ const convertToTreeItems = (nodes: FileNode[]): TreeItem[] => {
     }
     if (node.type === "folder" && node.children.length > 0)
       treeItem.children = convertToTreeItems(node.children)
-    if (node.type === "file" && node.content) {
+    if (node.type === "file" && node.content !== undefined) {
       treeItem.content = node.content
       treeItem.language = getLanguageFromFilename(node.name)
     }
@@ -313,49 +297,6 @@ interface AnimatedArrowProps {
   inputContent: string
 }
 
-const AnimatedArrowRight: React.FC<AnimatedArrowProps> = ({
-  className,
-  inputContent,
-}) => {
-  const controls = useAnimation()
-  useEffect(() => {
-    const animateArrow = async (): Promise<void> => {
-      await controls.start({ x: 5, transition: { duration: 0.2 } })
-      await controls.start({ x: 0, transition: { duration: 0.2 } })
-    }
-    if (inputContent) {
-      animateArrow()
-    }
-  }, [inputContent, controls])
-  return (
-    <motion.div animate={controls}>
-      <ArrowRight className={className} />
-    </motion.div>
-  )
-}
-
-const AnimatedArrowDown: React.FC<AnimatedArrowProps> = ({
-  className,
-  inputContent,
-}) => {
-  const controls = useAnimation()
-  useEffect(() => {
-    const animateArrow = async (): Promise<void> => {
-      await controls.start({ y: 5, transition: { duration: 0.2 } })
-      await controls.start({ y: 0, transition: { duration: 0.2 } })
-    }
-    if (inputContent) {
-      animateArrow()
-    }
-  }, [inputContent, controls])
-  return (
-    <motion.div animate={controls}>
-      <ArrowDown className={className} />
-    </motion.div>
-  )
-}
-
-// --- Main Component ---
 export default function FileExtractor() {
   const [inputContent, setInputContent] = useState<string>("")
   const [extractedFiles, setExtractedFiles] = useState<ExtractedFile[]>([])
@@ -375,26 +316,47 @@ export default function FileExtractor() {
   } | null>(null)
   const [editorTheme, setEditorTheme] = useState<"vs-dark" | "light">("vs-dark")
   const [transformType, setTransformType] = useState<TransformType>("none")
-  const [hasContent, setHasContent] = useState<boolean>(false)
   const [extractionSuccess, setExtractionSuccess] = useState<boolean>(false) // For beam effect
   const [copyButtonClicked, setCopyButtonClicked] = useState<string | null>(
     null
   ) // Track which copy button
   const { resolvedTheme } = useTheme()
-  const [isLoading, setIsLoading] = useState<boolean>(true) // Add loading state
-  const selectedContentRef = useRef<string | undefined>(undefined)
-  const isInitialLoad = useRef(true)
-  const inputEditorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(
-    null
+  const beamTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const copyTimeout = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(
+    () => () => {
+      if (beamTimeout.current) clearTimeout(beamTimeout.current)
+      if (copyTimeout.current) clearTimeout(copyTimeout.current)
+    },
+    []
   )
-
-  const PANEL_HEIGHT = "calc(100vh - 300px)" // Adjusted height slightly
-  const MIN_PANEL_HEIGHT = "550px" // Adjusted min height
-
+  const [initialized, setInitialized] = useState(false)
+  const [reviewing, setReviewing] = useState(false)
+  const [mobileFilesOpen, setMobileFilesOpen] = useState(false)
   const treeItems = React.useMemo(
     () => convertToTreeItems(fileTree.children),
     [fileTree]
   )
+
+  useEffect(() => {
+    const flat = (nodes: TreeItem[]): TreeItem[] =>
+      nodes.flatMap((node) => [node, ...flat(node.children ?? [])])
+    const items = flat(treeItems)
+    setSelectedItem((previous) => {
+      const item =
+        items.find((item) => item.path === previous?.path) ??
+        items.find((item) => item.type === "file")
+      return item
+        ? {
+            path: item.path!,
+            id: item.id,
+            type: item.type!,
+            content: item.content,
+            language: item.language,
+          }
+        : null
+    })
+  }, [treeItems])
 
   // Set editor theme based on app theme setting
   useEffect(() => {
@@ -402,70 +364,36 @@ export default function FileExtractor() {
     setEditorTheme(resolvedTheme === "dark" ? "vs-dark" : "light")
   }, [resolvedTheme])
 
-  // Load saved data from localStorage
+  // Rebuild from the saved source rather than relying on a stale extracted-file cache.
   useEffect(() => {
-    setIsLoading(true) // Start with loading state
-
-    const savedInput = localStorage.getItem("code-extractor-input")
-    if (savedInput) {
-      setInputContent(savedInput)
-      setHasContent(savedInput.trim().length > 0)
-    } else {
-      // No saved content, load demo content by default
-      setInputContent(demoContent)
-      setHasContent(true)
-      handleInputChange(demoContent) // Process demo content immediately
+    let source = ""
+    let style: TransformType = "none"
+    try {
+      source = localStorage.getItem("code-extractor-input") ?? ""
+      const savedStyle = localStorage.getItem("code-extractor-transform")
+      if (
+        ["none", "camelCase", "pascalCase", "kebabCase", "snakeCase"].includes(
+          savedStyle ?? ""
+        )
+      )
+        style = savedStyle as TransformType
+    } catch {
+      /* The workspace still works when storage is unavailable. */
     }
-
-    const savedFiles = localStorage.getItem("code-extractor-files")
-    if (savedFiles) {
-      try {
-        const parsed = JSON.parse(savedFiles)
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setExtractedFiles(parsed)
-          buildFileTree(parsed)
-        }
-      } catch (e) {
-        console.error("Failed to parse saved files:", e)
-      }
-    }
-    const savedTransform = localStorage.getItem("code-extractor-transform")
-    if (savedTransform) {
-      try {
-        setTransformType(savedTransform as TransformType)
-      } catch (e) {
-        console.error("Failed to parse transform type:", e)
-      }
-    }
-
-    // Set loading to false after initial setup
-    setTimeout(() => {
-      setIsLoading(false)
-      isInitialLoad.current = false
-    }, 300) // Brief delay to ensure UI updates
+    setTransformType(style)
+    handleInputChange(source, style)
+    setInitialized(true)
   }, [])
 
-  // Save input to localStorage
   useEffect(() => {
-    if (!isInitialLoad.current)
+    if (!initialized) return
+    try {
       localStorage.setItem("code-extractor-input", inputContent)
-    setHasContent(inputContent.trim().length > 0)
-  }, [inputContent])
-
-  // Save files to localStorage
-  useEffect(() => {
-    if (!isInitialLoad.current)
-      localStorage.setItem(
-        "code-extractor-files",
-        JSON.stringify(extractedFiles)
-      )
-  }, [extractedFiles])
-
-  // Save transform preference
-  useEffect(() => {
-    if (!isInitialLoad.current)
       localStorage.setItem("code-extractor-transform", transformType)
-  }, [transformType])
+    } catch {
+      /* Storage may be unavailable or full. */
+    }
+  }, [inputContent, transformType, initialized])
 
   // Build file tree (modified slightly for clarity/robustness)
   const buildFileTree = (files: ExtractedFile[]) => {
@@ -547,40 +475,38 @@ export default function FileExtractor() {
   }
 
   // Handle input change and parse files
-  const handleInputChange = (content: string | undefined) => {
+  const handleInputChange = (
+    content: string | undefined,
+    style: TransformType = transformType
+  ) => {
     const newContent = content || ""
     setInputContent(newContent)
-
-    // Only set loading if there's actual content to process
-    if (newContent.trim().length > 0) {
-      setIsLoading(true) // Set loading state during processing
-    }
 
     try {
       let newFiles = extractFilesFromText(newContent)
 
-      // Apply current transformation if needed (before building tree)
-      if (transformType !== "none") {
-        newFiles = newFiles.map((file) => ({
+      const originals = newFiles.map((file) => ({
+        ...file,
+        path: cleanFilePath(file.path),
+      }))
+      newFiles = updateImportsAcrossFiles(
+        originals,
+        originals.map((file) => ({
           ...file,
-          path: transformPath(cleanFilePath(file.path), transformType), // Clean first
+          path: style === "none" ? file.path : transformPath(file.path, style),
         }))
-        // Note: Import updates happen *during* transformAllPaths, not here.
-        // If needed immediately, call updateImportsAcrossFiles here.
-      } else {
-        // Ensure paths are cleaned even if no transform is active
-        newFiles = newFiles.map((file) => ({
-          ...file,
-          path: cleanFilePath(file.path),
-        }))
-      }
+      )
 
       setExtractedFiles(newFiles)
       buildFileTree(newFiles)
 
       if (newFiles.length > 0) {
         setExtractionSuccess(true)
-        setTimeout(() => setExtractionSuccess(false), 750) // Trigger beam effect
+        if (beamTimeout.current) clearTimeout(beamTimeout.current)
+        beamTimeout.current = setTimeout(
+          () => setExtractionSuccess(false),
+          1200
+        )
       } else {
         setExtractionSuccess(false)
       }
@@ -590,8 +516,6 @@ export default function FileExtractor() {
         description: "Could not parse files from input.",
       })
       setExtractionSuccess(false)
-    } finally {
-      setIsLoading(false) // Always clear loading state when done
     }
   }
 
@@ -619,8 +543,11 @@ export default function FileExtractor() {
     // Create a map of oldPath -> newPath
     const pathTransformMap = new Map<string, string>()
 
-    const originalFiles = [...extractedFiles]
-    let transformedFiles = extractedFiles.map((file) => {
+    const originalFiles = extractFilesFromText(inputContent).map((file) => ({
+      ...file,
+      path: cleanFilePath(file.path),
+    }))
+    let transformedFiles = originalFiles.map((file) => {
       const cleanPath = cleanFilePath(file.path)
       const newPath =
         transform === "none" ? cleanPath : transformPath(cleanPath, transform)
@@ -691,10 +618,9 @@ export default function FileExtractor() {
   // Load demo content
   const handleLoadDemo = () => {
     setInputContent(demoContent)
-    handleInputChange(demoContent) // Process demo content
+    handleInputChange(demoContent, "none") // Process demo content
     setTransformType("none") // Reset transform for demo
     setSelectedItem(null)
-    toast.success("Demo content loaded")
   }
 
   // Copy file content
@@ -703,8 +629,8 @@ export default function FileExtractor() {
       .writeText(content)
       .then(() => {
         setCopyButtonClicked(itemId)
-        toast.success("Copied to clipboard")
-        setTimeout(() => setCopyButtonClicked(null), 1000) // Reset after 1s
+        if (copyTimeout.current) clearTimeout(copyTimeout.current)
+        copyTimeout.current = setTimeout(() => setCopyButtonClicked(null), 1500)
       })
       .catch(() => toast.error("Failed to copy to clipboard"))
   }
@@ -717,15 +643,6 @@ export default function FileExtractor() {
   }
 
   // Get all files in folder (recursive helper needed if tree structure is deep)
-  const getAllFilesInFolder = (folderPath: string): ExtractedFile[] => {
-    // Simple filter based on path prefix for now
-    return extractedFiles.filter(
-      (file) =>
-        file.path.startsWith(folderPath + "/") && file.path !== folderPath
-    )
-  }
-
-  // Download folder as zip
   const downloadFolderAsZip = async (
     folderPath: string,
     folderName: string
@@ -833,7 +750,7 @@ export default function FileExtractor() {
       const blob = await zip.generateAsync({ type: "blob" })
       saveAs(blob, "extracted_project.zip")
       toast.success(
-        `Downloaded Project as ZIP (${extractedFiles.length} files)`
+        `Downloaded ${extractedFiles.length} ${extractedFiles.length === 1 ? "file" : "files"} as ZIP`
       )
     } catch (error) {
       console.error("Failed to create zip:", error)
@@ -843,6 +760,8 @@ export default function FileExtractor() {
 
   // Handle item selection
   const handleSelectItem = (item: TreeItem | null) => {
+    setReviewing(true)
+    setMobileFilesOpen(false)
     if (!item) {
       setSelectedItem(null)
       return
@@ -860,527 +779,462 @@ export default function FileExtractor() {
     })
   }
 
-  // Get all files and folders in a directory
-  const getContentsInFolder = (
-    folderPath: string
-  ): {
-    fileCount: number
-    folderCount: number
-  } => {
-    // Find all direct child files
-    const files = extractedFiles.filter((file) => {
-      const parentPath = file.path.substring(0, file.path.lastIndexOf("/"))
-      return parentPath === folderPath
-    })
-
-    // Find all direct child folders (unique parent paths)
-    const childFolderPaths = new Set<string>()
-    extractedFiles.forEach((file) => {
-      if (file.path.startsWith(folderPath + "/")) {
-        const remainingPath = file.path.substring(folderPath.length + 1)
-        const nextSegment = remainingPath.split("/")[0]
-        if (nextSegment) {
-          childFolderPaths.add(`${folderPath}/${nextSegment}`)
-        }
-      }
-    })
-
-    return {
-      fileCount: files.length,
-      folderCount: childFolderPaths.size,
-    }
+  const editorOptions = {
+    minimap: { enabled: false },
+    scrollBeyondLastLine: false,
+    fontSize: 13,
+    lineHeight: 23,
+    fontFamily: "var(--font-jetbrains), monospace",
+    padding: { top: 18, bottom: 18 },
+    renderLineHighlight: "none" as const,
+    overviewRulerLanes: 0,
+    scrollbar: { alwaysConsumeMouseWheel: false },
   }
 
-  // Add a handler for the input editor mounting
-  const handleInputEditorDidMount: OnMount = (editor, monaco) => {
-    inputEditorRef.current = editor
-    const monacoWithTypeScript = monaco as unknown as typeof import("monaco-editor")
-
-    // Configure Monaco to ignore certain TypeScript errors
-    monacoWithTypeScript.typescript.javascriptDefaults.setDiagnosticsOptions({
-      noSemanticValidation: false,
-      noSyntaxValidation: false,
-      diagnosticCodesToIgnore: [7027, 6133, 6196], // Ignore unreachable code & unused var warnings
-    })
-
-    // Configure Markdown settings to be less strict
-    monacoWithTypeScript.typescript.typescriptDefaults.setDiagnosticsOptions({
-      diagnosticCodesToIgnore: [7027, 6133, 6196],
-    })
-
-    // If there's saved content that should be loaded on component mount
-    if (inputContent && !isInitialLoad.current) {
-      editor.setValue(inputContent)
-    }
-  }
+  const sourceEditor = (
+    <>
+      <div className="flex h-12 shrink-0 items-center justify-between gap-2 border-b pl-4 pr-2">
+        <span className="shrink-0 text-xs text-muted-foreground">
+          Source text
+        </span>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleLoadDemo}
+            className="text-xs text-muted-foreground"
+          >
+            Try example
+          </Button>
+          <Button
+            variant={inputContent.trim() ? "outline" : "default"}
+            size="sm"
+            onClick={handlePaste}
+            className="text-xs"
+          >
+            <ClipboardPaste className="size-3.5" />
+            Paste text
+          </Button>
+        </div>
+      </div>
+      <div className="relative flex min-h-0 flex-1 flex-col after:pointer-events-none after:absolute after:inset-0 after:z-10 after:border-2 after:border-transparent focus-within:after:border-ring">
+        <Editor
+          height="100%"
+          language="markdown"
+          value={inputContent}
+          onChange={(value) => handleInputChange(value ?? "")}
+          theme={editorTheme}
+          loading={<EditorLoading />}
+          options={{
+            ...editorOptions,
+            ariaLabel: "Source text",
+            wordWrap: "on",
+            lineNumbers: "off",
+            glyphMargin: false,
+            folding: false,
+            lineDecorationsWidth: 16,
+            quickSuggestions: false,
+            suggestOnTriggerCharacters: false,
+            wordBasedSuggestions: "off",
+            tabCompletion: "off",
+            accessibilitySupport: "auto",
+          }}
+        />
+        {!inputContent && (
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-x-4 top-[18px] whitespace-pre-wrap font-mono text-[13px] leading-[23px] text-muted-foreground"
+          >
+            {
+              'Paste your response here…\n\nsrc/hello.ts\n```ts\nexport const hello = "Hello, world!";\n```'
+            }
+          </div>
+        )}
+      </div>
+      <div className="flex min-h-10 shrink-0 items-center justify-between gap-3 border-t px-4 py-2 text-xs leading-5 text-muted-foreground">
+        <span>
+          {inputContent.trim() && !extractedFiles.length
+            ? "No files found. Put a filename above each fenced code block."
+            : "Put a filename above each code block. Files update as you edit."}
+        </span>
+        {extractedFiles.length > 0 && (
+          <button
+            onClick={() => {
+              setReviewing(true)
+            }}
+            className="shrink-0 font-medium text-foreground hover:underline md:hidden"
+          >
+            View files
+          </button>
+        )}
+      </div>
+    </>
+  )
+  const filePreview = selectedItem ? (
+    <>
+      <div className="flex h-12 shrink-0 items-center justify-between gap-2 border-b pl-4 pr-2">
+        <span
+          title={selectedItem.path}
+          className="min-w-0 truncate font-mono text-xs text-muted-foreground"
+        >
+          {selectedItem.path}
+        </span>
+        <div className="flex shrink-0 gap-1">
+          <IconAction
+            label={
+              selectedItem.type === "folder"
+                ? "Download folder ZIP"
+                : "Download file"
+            }
+            onClick={() =>
+              selectedItem.type === "folder"
+                ? downloadFolderAsZip(
+                    selectedItem.path,
+                    selectedItem.path.split("/").pop()!
+                  )
+                : downloadFile(selectedItem.path, selectedItem.content ?? "")
+            }
+          >
+            <Download className="size-4" />
+          </IconAction>
+          {selectedItem.type === "file" && (
+            <IconAction
+              label={
+                copyButtonClicked === selectedItem.id ? "Copied" : "Copy file"
+              }
+              onClick={() =>
+                copyFileContent(selectedItem.content ?? "", selectedItem.id!)
+              }
+            >
+              <span className="relative size-4">
+                {[Copy, Check].map((Icon, i) => (
+                  <Icon
+                    key={i}
+                    className={cn(
+                      "absolute size-4 transition-[opacity,transform] duration-200 ease-out motion-reduce:transition-none",
+                      (copyButtonClicked === selectedItem.id) === !!i
+                        ? "scale-100 opacity-100"
+                        : "scale-50 opacity-0"
+                    )}
+                  />
+                ))}
+              </span>
+            </IconAction>
+          )}
+        </div>
+      </div>
+      <div className="min-h-0 flex-1 overflow-auto">
+        {selectedItem.type === "file" ? (
+          <Editor
+            height="100%"
+            language={selectedItem.language}
+            value={selectedItem.content ?? ""}
+            theme={editorTheme}
+            loading={<EditorLoading />}
+            options={{
+              ...editorOptions,
+              ariaLabel: "File preview",
+              readOnly: true,
+              wordWrap: "off",
+              lineNumbersMinChars: 3,
+              folding: false,
+            }}
+          />
+        ) : (
+          <div className="p-4">
+            {extractedFiles
+              .filter((file) => file.path.startsWith(selectedItem.path + "/"))
+              .map((file) => (
+                <button
+                  key={file.id}
+                  onClick={() =>
+                    handleSelectItem({
+                      id: file.path,
+                      name: file.path,
+                      path: file.path,
+                      content: file.content,
+                      language: getLanguageFromFilename(file.path),
+                      type: "file",
+                    })
+                  }
+                  className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-sm hover:bg-muted focus-visible:outline-2"
+                >
+                  <FileText className="size-4 shrink-0" />
+                  <span className="truncate">{file.path}</span>
+                </button>
+              ))}
+          </div>
+        )}
+      </div>
+    </>
+  ) : (
+    <div className="flex h-full flex-col items-center justify-center px-6 py-6 text-center">
+      <h2 className="text-base font-medium">
+        {inputContent.trim()
+          ? "No files found yet"
+          : "Your files will appear here"}
+      </h2>
+      <p className="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
+        {inputContent.trim()
+          ? "Place a filename above each fenced code block. You can include the rest of the conversation, too."
+          : "Each named code block becomes a file. Folder paths stay intact."}
+      </p>
+      <Button variant="outline" className="mt-5" onClick={handleLoadDemo}>
+        Try an example
+      </Button>
+      <span className="mt-2 text-xs text-muted-foreground">
+        See the source and its extracted files.
+      </span>
+    </div>
+  )
 
   return (
-    <Shell className="space-y-4">
-      <div className="flex flex-col relative">
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] gap-4 w-full">
-          {/* Input Area */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between px-1">
-              <h2 className="text-lg font-semibold text-primary flex items-center gap-2">
-                <span>Input</span>
-              </h2>
-              <div className="flex items-center gap-1.5">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger render={
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handlePaste}
-                        className="h-8 px-3 text-xs gap-1.5"
-                      >
-                        <ClipboardPaste className="h-3.5 w-3.5" />
-                        <span className="hidden sm:inline">Paste</span>
-                      </Button>
-                    }>
-
-                    </TooltipTrigger>
-                    <TooltipContent>Paste from Clipboard</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger render={
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleLoadDemo}
-                        className="h-8 px-3 text-xs gap-1.5"
-                      >
-                        <BookOpen className="h-3.5 w-3.5" />
-                        <span className="hidden sm:inline">Demo</span>
-                      </Button>
-                    }>
-
-                    </TooltipTrigger>
-                    <TooltipContent>Load Example Content</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-            </div>
-            <div className="relative">
-              <Card
-                className={cn(
-                  "relative overflow-hidden border-muted-foreground/10 py-0 shadow-sm",
-                  "bg-card", // Simpler background
-                  hasContent && "border-primary/20"
-                )}
-                style={{ height: PANEL_HEIGHT, minHeight: MIN_PANEL_HEIGHT }}
-              >
-                <CardContent className="p-0 h-full">
-                  {/* Replace ScrollArea and Textarea with Editor */}
-                  <Editor
-                    height="100%"
-                    defaultLanguage="markdown"
-                    value={inputContent}
-                    onChange={handleInputChange}
-                    onMount={handleInputEditorDidMount}
-                    options={{
-                      minimap: { enabled: false },
-                      scrollBeyondLastLine: false,
-                      fontSize: 13,
-                      wordWrap: "on",
-                      lineNumbers: "off",
-                      folding: true,
-                      renderLineHighlight: "none",
-                      occurrencesHighlight: "off",
-                      scrollbar: {
-                        alwaysConsumeMouseWheel: false,
-                        vertical: "auto",
-                        horizontal: "auto",
-                      },
-                      renderValidationDecorations: "off",
-                      overviewRulerLanes: 0,
-                      padding: { top: 16, bottom: 16 },
-                      cursorBlinking: "solid",
-                      lineHeight: 1.5,
-                    }}
-                    theme={editorTheme}
-                  />
-                </CardContent>
-              </Card>
-            </div>
+    <section
+      aria-label="Text to files workspace"
+      className="flex min-h-[600px] flex-col"
+      style={{ height: "calc(100dvh - 268px)" }}
+    >
+      <div className="flex h-14 shrink-0 items-center justify-between gap-3 px-1 md:hidden">
+        <div className="flex min-w-0 items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Toggle file sidebar"
+            aria-expanded={mobileFilesOpen}
+            onClick={() => setMobileFilesOpen(!mobileFilesOpen)}
+            className="md:hidden"
+          >
+            <FolderTree className="size-4" />
+          </Button>
+          {reviewing && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setReviewing(false)
+                setMobileFilesOpen(false)
+              }}
+              className="shrink-0 text-xs md:hidden"
+            >
+              <ArrowLeft className="size-3.5" />
+              Back to source
+            </Button>
+          )}
+          <span
+            className={cn(
+              "text-sm font-medium",
+              reviewing && "hidden md:block"
+            )}
+          >
+            Source text
+          </span>
+        </div>
+        <Button
+          onClick={downloadProject}
+          disabled={!extractedFiles.length}
+          className="h-8 shrink-0 px-3 text-xs"
+        >
+          <Download className="size-3.5" />
+          Download ZIP
+        </Button>
+      </div>
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-5 md:grid-rows-[220px_minmax(0,1fr)] xl:grid-cols-[minmax(320px,0.85fr)_minmax(0,1.65fr)] xl:grid-rows-1">
+        <div className="hidden min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border bg-card md:flex">
+          {sourceEditor}
+        </div>
+        <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border bg-card">
+          <div className="hidden h-12 shrink-0 items-center justify-between border-b pl-4 pr-2 md:flex">
+            <h2 className="text-sm font-medium">
+              Extracted files{" "}
+              <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                {extractedFiles.length}
+              </span>
+            </h2>
+            <Button
+              onClick={downloadProject}
+              disabled={!extractedFiles.length}
+              className="h-8 px-3 text-xs"
+            >
+              <Download className="size-3.5" />
+              Download ZIP
+            </Button>
           </div>
-
-          {/* Center Arrow Column */}
-          <div className="flex items-center justify-center h-full">
-            <div
+          <div
+            className={cn(
+              "relative grid min-h-0 flex-1 grid-cols-1",
+              extractedFiles.length > 0 && "md:grid-cols-[200px_minmax(0,1fr)]"
+            )}
+          >
+            {mobileFilesOpen && (
+              <button
+                aria-label="Close file sidebar"
+                onClick={() => setMobileFilesOpen(false)}
+                className="absolute inset-0 z-10 bg-black/20 md:hidden"
+              />
+            )}
+            <aside
+              aria-label="Project files"
               className={cn(
-                "flex flex-col items-center justify-center",
-                !hasContent && "opacity-50"
+                "min-h-0 flex-col border-r bg-muted/25 p-3 md:static md:w-auto",
+                extractedFiles.length > 0 ? "md:flex" : "md:hidden",
+                mobileFilesOpen
+                  ? "absolute inset-y-0 left-0 z-20 flex w-64 bg-card shadow-xl md:shadow-none"
+                  : "hidden"
               )}
             >
-              <div className="hidden lg:flex">
-                <AnimatedArrowRight
-                  className="h-6 w-6 text-primary"
-                  inputContent={inputContent}
-                />
-              </div>
-              <AnimatedArrowDown
-                className="h-6 w-6 text-primary/80 lg:hidden"
-                inputContent={inputContent}
-              />
-            </div>
-          </div>
-
-          {/* File Explorer & Editor Split View */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between px-1">
-              <h2 className="text-lg font-semibold text-primary flex items-center gap-2">
-                <span>Files</span>
-                <span className="text-sm font-normal text-muted-foreground truncate">
-                  ({extractedFiles.length} extracted)
-                </span>
-              </h2>
-              <div className="flex items-center gap-1.5">
-                {extractedFiles.length > 0 && (
-                  <TooltipProvider>
-                    <Tooltip>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger render={
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="h-8 px-3 text-xs gap-1.5"
-                          >
-                            <RefreshCw className="h-3.5 w-3.5" />
-                            <span className="hidden sm:inline">
-                              {transformType === "none"
-                                ? "Rename Files"
-                                : transformType === "camelCase"
-                                  ? "camelCase"
-                                  : transformType === "pascalCase"
-                                    ? "PascalCase"
-                                    : transformType === "kebabCase"
-                                      ? "kebab-case"
-                                      : transformType === "snakeCase"
-                                        ? "snake_case"
-                                        : "Rename Files"}
-                            </span>
-                            <ChevronDown className="h-3.5 w-3.5 ml-1 opacity-70" />
-                          </Button>
-                        }>
-
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel className="flex flex-col">
-                            <span>Rename File Format</span>
-                            <span className="font-normal text-xs text-muted-foreground mt-1">
-                              Changes naming style & updates imports
-                            </span>
-                          </DropdownMenuLabel>
-                          <DropdownMenuSeparator />
-                          {[
-                            "camelCase",
-                            "pascalCase",
-                            "kebabCase",
-                            "snakeCase",
-                          ].map((type) => (
-                            <DropdownMenuItem
-                              key={type}
-                              onClick={() =>
-                                transformAllPaths(type as TransformType)
-                              }
-                              className={cn(
-                                transformType === type &&
-                                "bg-accent font-medium text-accent-foreground",
-                                "flex items-center justify-between"
-                              )}
-                            >
-                              {type === "camelCase"
-                                ? "camelCase"
-                                : type === "pascalCase"
-                                  ? "PascalCase"
-                                  : type === "kebabCase"
-                                    ? "kebab-case"
-                                    : "snake_case"}
-                              {transformType === type && (
-                                <span className="ml-2 text-xs opacity-70">
-                                  ✓
-                                </span>
-                              )}
-                            </DropdownMenuItem>
-                          ))}
-                          {transformType !== "none" && (
-                            <>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onClick={() => transformAllPaths("none")}
-                              >
-                                Reset to Original
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                      <TooltipContent side="bottom" className="max-w-[220px]">
-                        Change files/directories naming style (camelCase,
-                        kebab-case, etc.) with automatic import path updates
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                )}
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger render={
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={downloadProject}
-                        disabled={extractedFiles.length === 0}
-                        className={cn(
-                          "h-8 px-3 text-xs gap-1.5",
-                          "border-primary/30 hover:border-primary/60 transition-colors"
-                        )}
-                      >
-                        <Package className="h-3.5 w-3.5" />
-                        <span className="hidden sm:inline">
-                          Download Project
-                        </span>
-                      </Button>
-                    }>
-
-                    </TooltipTrigger>
-                    <TooltipContent>Download all files as .zip</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-            </div>
-
-            <div className="relative">
-              <Card
+              <button
+                onClick={() => {
+                  setReviewing(false)
+                  setMobileFilesOpen(false)
+                }}
+                aria-pressed={!reviewing}
                 className={cn(
-                  "overflow-hidden border-muted-foreground/10 py-0 shadow-sm",
-                  "bg-card" // Simpler background
+                  "md:hidden flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-[13px] transition-colors focus-visible:outline-2",
+                  !reviewing
+                    ? "bg-primary/8 font-medium"
+                    : "text-muted-foreground hover:bg-muted"
                 )}
-                style={{ height: PANEL_HEIGHT, minHeight: MIN_PANEL_HEIGHT }}
               >
-                <CardContent className="p-0 h-full">
-                  <div className="grid grid-cols-5 h-full">
-                    {/* Using grid for split */}
-                    {/* File Tree */}
-                    <div className="col-span-2 border-r border-border/50 overflow-hidden">
-                      {isLoading ? (
-                        <div className="flex flex-col items-center justify-center h-full text-center p-6 text-muted-foreground">
-                          <Loader2 className="h-10 w-10 mb-3 animate-spin opacity-70" />
-                          <p className="text-sm font-medium">
-                            Loading files...
-                          </p>
-                        </div>
-                      ) : extractedFiles.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center h-full text-center p-6 text-muted-foreground">
-                          <FolderTree className="h-10 w-10 mb-3 opacity-50" />
-                          <p className="text-sm font-medium">
-                            No files extracted
-                          </p>
-                          <p className="text-xs mt-1 max-w-[200px] opacity-80">
-                            Paste content in the left panel to see the file
-                            structure here.
-                          </p>
-                        </div>
-                      ) : (
-                        <ScrollArea className="h-full w-full">
-                          <Tree
-                            data={treeItems}
-                            onSelectChange={handleSelectItem}
-                            selectedId={selectedItem?.id} // This should now work because we're setting id consistently
-                            folderIcon={Folder}
-                            itemIcon={FileText}
-                            className="p-2" // Add padding inside scroll area
-                          />
-                        </ScrollArea>
-                      )}
-                    </div>
-                    {/* Monaco Editor or Folder View */}
-                    <div className="col-span-3 h-full bg-muted/20">
-                      {/* Subtle background difference */}
-                      {selectedItem ? (
-                        selectedItem.type === "file" && selectedItem.id ? ( // Check for ID
-                          <div className="flex flex-col h-full">
-                            <div className="flex items-center justify-between border-b border-border/50 px-3 py-1.5 bg-background">
-                              {/* File header */}
-                              <div className="flex items-center gap-2 overflow-hidden flex-1 min-w-0">
-                                <FileText className="h-4 w-4 flex-shrink-0 text-primary/80" />
-                                <span
-                                  className="font-mono text-xs truncate"
-                                  title={selectedItem.path}
-                                >
-                                  {selectedItem.path.split("/").pop()}
-                                </span>
-                              </div>
-                              <div className="flex gap-1">
-                                <Tooltip>
-                                  <TooltipTrigger render={
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      onClick={() =>
-                                        selectedItem.content &&
-                                        copyFileContent(
-                                          selectedItem.content,
-                                          selectedItem.id!
-                                        )
-                                      }
-                                      className="h-7 w-7"
-                                    >
-                                      <div className="w-3.5 h-3.5 relative flex items-center justify-center">
-                                        <Check
-                                          size={14}
-                                          className={cn(
-                                            "absolute transition-all",
-                                            copyButtonClicked ===
-                                              selectedItem.id
-                                              ? "opacity-100 scale-100 text-green-500"
-                                              : "opacity-0 scale-0"
-                                          )}
-                                        />
-                                        <Copy
-                                          size={14}
-                                          className={cn(
-                                            "absolute transition-all",
-                                            copyButtonClicked ===
-                                              selectedItem.id
-                                              ? "opacity-0 scale-0"
-                                              : "opacity-100 scale-100"
-                                          )}
-                                        />
-                                      </div>
-                                    </Button>
-                                  }>
-
-                                  </TooltipTrigger>
-                                  <TooltipContent>Copy Content</TooltipContent>
-                                </Tooltip>
-                                <Tooltip>
-                                  <TooltipTrigger render={
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      onClick={() =>
-                                        selectedItem.content &&
-                                        downloadFile(
-                                          selectedItem.path,
-                                          selectedItem.content
-                                        )
-                                      }
-                                      className="h-7 w-7"
-                                    >
-                                      <Download className="h-3.5 w-3.5" />
-                                    </Button>
-                                  }>
-
-                                  </TooltipTrigger>
-                                  <TooltipContent>Download File</TooltipContent>
-                                </Tooltip>
-                              </div>
-                            </div>
-                            <div className="flex-1 overflow-hidden">
-                              {/* Editor takes remaining space */}
-                              <Editor
-                                height="100%"
-                                language={selectedItem.language}
-                                value={selectedItem.content}
-                                theme={editorTheme}
-                                options={{
-                                  readOnly: true,
-                                  minimap: { enabled: false },
-                                  scrollBeyondLastLine: false,
-                                  fontSize: 13,
-                                  wordWrap: "off", // Default off
-                                  scrollbar: {
-                                    alwaysConsumeMouseWheel: false,
-                                    vertical: "auto",
-                                    horizontal: "auto",
-                                  },
-                                }}
-                              />
-                            </div>
-                          </div>
-                        ) : selectedItem.type === "folder" ? (
-                          <div className="flex flex-col items-center justify-center h-full text-center p-6 text-muted-foreground">
-                            <Folder className="h-12 w-12 mb-4 text-blue-500/70" />
-                            <p className="text-base font-medium mb-1 text-foreground">
-                              {selectedItem.path.split("/").pop() ||
-                                "Project Root"}
-                            </p>
-                            <p className="text-xs mb-4">
-                              {(() => {
-                                const { fileCount, folderCount } =
-                                  getContentsInFolder(selectedItem.path)
-                                const fileTxt =
-                                  fileCount === 1 ? "file" : "files"
-                                const folderTxt =
-                                  folderCount === 1 ? "directory" : "directories"
-
-                                if (fileCount === 0 && folderCount === 0) {
-                                  return "Empty directory"
-                                }
-
-                                if (fileCount === 0) {
-                                  return `Contains ${folderCount} ${folderTxt}`
-                                }
-
-                                if (folderCount === 0) {
-                                  return `Contains ${fileCount} ${fileTxt}`
-                                }
-
-                                return `Contains ${fileCount} ${fileTxt} and ${folderCount} ${folderTxt}`
-                              })()}
-                            </p>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() =>
-                                downloadFolderAsZip(
-                                  selectedItem.path,
-                                  selectedItem.path.split("/").pop() || "directory"
-                                )
-                              }
-                              className="gap-2"
-                            >
-                              <Download className="h-4 w-4" /> Download Directory
-                              (.zip)
-                            </Button>
-                          </div>
-                        ) : null // Handle potential invalid state
-                      ) : (
-                        <div className="flex flex-col items-center justify-center h-full text-center p-6 text-muted-foreground">
-                          <File className="h-10 w-10 mb-3 opacity-50" />
-                          <p className="text-sm font-medium">
-                            Select a file or directory
-                          </p>
-                          <p className="text-xs mt-1 max-w-[200px] opacity-80">
-                            Click an item in the file explorer to
-                            view its content or actions.
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              {/* Output Beam effect */}
+                <FileText className="size-4 shrink-0" />
+                Source text
+              </button>
+              <div className="mt-7 flex items-center justify-between px-3 text-[11px] font-medium text-muted-foreground md:hidden">
+                <h2 className="text-xs">Files</h2>
+                <span aria-live="polite" className="font-normal tabular-nums">
+                  {extractedFiles.length}
+                </span>
+              </div>
+              <div className="mt-2 min-h-0 flex-1 overflow-auto">
+                {extractedFiles.length ? (
+                  <Tree
+                    data={treeItems}
+                    selectedId={selectedItem?.id}
+                    onSelectChange={handleSelectItem}
+                    folderIcon={Folder}
+                    itemIcon={FileText}
+                  />
+                ) : (
+                  <p className="px-3 py-4 text-xs leading-5 text-muted-foreground">
+                    Your files will appear here as you add text.
+                  </p>
+                )}
+              </div>
+              <div className="mt-3 border-t pt-3">
+                {" "}
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={!extractedFiles.length}
+                        aria-label="Rename files"
+                        className="text-muted-foreground"
+                      >
+                        <span>Rename files</span>
+                        <ChevronDown className="size-3.5" />
+                      </Button>
+                    }
+                  />
+                  <DropdownMenuContent align="end" className="min-w-48">
+                    <DropdownMenuLabel>Filename style</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {(
+                      [
+                        "none",
+                        "camelCase",
+                        "pascalCase",
+                        "kebabCase",
+                        "snakeCase",
+                      ] as const
+                    ).map((type) => (
+                      <DropdownMenuItem
+                        key={type}
+                        onClick={() => transformAllPaths(type)}
+                      >
+                        {type === "none"
+                          ? "Original names"
+                          : type === "pascalCase"
+                            ? "PascalCase"
+                            : type === "kebabCase"
+                              ? "kebab-case"
+                              : type === "snakeCase"
+                                ? "snake_case"
+                                : type}
+                        {transformType === type && (
+                          <Check className="ml-auto size-3.5" />
+                        )}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            </aside>
+            <div className="relative flex min-h-0 min-w-0 flex-col">
               <div
                 className={cn(
-                  "absolute overflow-hidden inset-0 transition-opacity duration-500 pointer-events-none",
-                  extractionSuccess ? "opacity-100" : "opacity-0"
+                  "min-h-0 flex-1 flex-col md:hidden",
+                  !reviewing || !selectedItem ? "flex" : "hidden"
                 )}
               >
-                <BorderBeam
-                  duration={3}
-                  size={300}
-                  className="from-purple-500 via-blue-500 to-transparent"
-                />
+                {sourceEditor}
               </div>
+              <div
+                className={cn(
+                  "min-h-0 flex-1 flex-col md:flex",
+                  reviewing && selectedItem ? "flex" : "hidden"
+                )}
+              >
+                {filePreview}
+              </div>
+              {extractionSuccess && (
+                <div className="pointer-events-none absolute inset-0 overflow-hidden motion-reduce:hidden">
+                  <BorderBeam
+                    duration={1.2}
+                    size={180}
+                    colorFrom="#a3a3a3"
+                    colorTo="#737373"
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
-    </Shell>
+    </section>
+  )
+}
+
+function IconAction({
+  label,
+  onClick,
+  children,
+}: {
+  label: string
+  onClick: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={label}
+            onClick={onClick}
+            className="shrink-0 text-muted-foreground hover:text-foreground"
+          >
+            {children}
+          </Button>
+        }
+      />
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+  )
+}
+function EditorLoading() {
+  return (
+    <div className="p-5 text-xs text-muted-foreground">Loading editor…</div>
   )
 }
