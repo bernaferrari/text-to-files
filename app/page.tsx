@@ -1,9 +1,15 @@
+import type { Metadata } from "next"
+import Link from "next/link"
 import { ArrowRight, FileCode2, FileText } from "lucide-react"
 
 import { siteConfig } from "@/config/site"
 
 import FileExtractor from "./file-extractor"
 import { PostHogProvider } from "./providers"
+
+export const metadata: Metadata = {
+  alternates: { canonical: "/" },
+}
 
 export default function Home() {
   return (
@@ -83,6 +89,9 @@ export default function Home() {
           </a>
         </span>
         <div className="flex gap-6">
+          <Link className="hover:text-foreground" href="/faq">
+            Help & FAQ
+          </Link>
           <a className="hover:text-foreground" href={siteConfig.links.github}>
             Source code
           </a>

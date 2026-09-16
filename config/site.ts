@@ -2,6 +2,7 @@ export type SiteConfig = typeof siteConfig
 
 export const siteConfig = {
   name: "Text to Files",
+  url: "https://text-to-files.vercel.app",
   description: "Turn AI chat outputs into files with just a paste.",
   mainNav: [
     // {

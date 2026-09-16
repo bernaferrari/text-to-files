@@ -1,145 +1,81 @@
-import { BookOpen } from "lucide-react"
+const questions = [
+  {
+    id: "getting-started",
+    question: "How do I turn an AI response into files?",
+    answer:
+      "Copy the response, then use Paste text or paste directly into the source editor. Text to Files extracts fenced code blocks as you type. Select a file in the tree to review it, then download an individual file or choose Download ZIP for all extracted files. Try example loads a small project so you can explore the workflow.",
+  },
+  {
+    id: "format",
+    question: "How should I format filenames and code blocks?",
+    answer:
+      "For the most predictable result, put the filename or relative path on the line immediately above a code block enclosed in triple backticks. Plain paths, bold paths, and paths wrapped in inline backticks are supported. Include the language after the opening fence for syntax highlighting. You can ask your AI assistant to follow the example below.",
+  },
+  {
+    id: "folders",
+    question: "Will my folder structure be preserved?",
+    answer:
+      "Yes. A path such as src/components/Button.tsx creates nested folders in the file tree and ZIP. Use relative paths from the root of your project. Only the files represented by code blocks are included; dependencies, images, and other referenced assets are not fetched automatically.",
+  },
+  {
+    id: "editing",
+    question: "Can I edit the extracted files?",
+    answer:
+      "Edit their code in the source panel. The file tree and preview update automatically, including when you add or remove a code block. The extracted-file preview is read-only. On smaller screens, choose View files to review the result and Back to source to continue editing.",
+  },
+  {
+    id: "missing-files",
+    question: "Why is a file missing or named incorrectly?",
+    answer:
+      "Check that the code block has opening and closing triple backticks on separate lines and a filename directly above it. Empty code blocks are skipped. Without a recognized path, a block may receive a fallback name based on its language. Explicit filenames are more reliable than descriptions such as “Here is your component.”",
+  },
+  {
+    id: "renaming",
+    question: "Can I change the filename style?",
+    answer:
+      "Use Rename files below the file tree to apply camelCase, PascalCase, kebab-case, or snake_case. The tool also attempts to update supported import paths. This is a text transformation, not a full compiler: review imports after renaming, especially complex relative paths. Imported variable names are not renamed. Choose the original naming option to return to the paths in your source.",
+  },
+  {
+    id: "storage",
+    question: "Where is my text processed and saved?",
+    answer:
+      "Extraction and ZIP creation run in your browser. The source text and naming preference are saved in this site's local storage so you can return to your work in the same browser profile. Clearing site data removes that saved state. The site also uses PostHog for usage analytics; browser-based extraction does not mean the site makes no network requests.",
+  },
+  {
+    id: "compatibility",
+    question: "Does it work with any AI assistant or programming language?",
+    answer:
+      "The tool reads text, so you can paste a response from any assistant or a Markdown document. No AI account connection is required. Extraction depends on code block formatting and filenames, rather than the assistant that produced the response. Syntax highlighting varies by language. The tool does not execute, test, or verify the generated code.",
+  },
+]
 
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion"
-
-export const FAQ = () => {
+export function FAQ() {
   return (
-    <section>
-      <div className="flex items-center gap-3 mb-8 justify-center pt-8">
-        <div className="p-2 text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/40 rounded-lg">
-          <BookOpen size={20} />
-        </div>
-        <h2 className="text-2xl font-semibold tracking-tight">
-          Frequently Asked Questions
-        </h2>
-      </div>
-      <Accordion className="w-full">
-        <AccordionItem value="item-1">
-          <AccordionTrigger className="text-start font-medium hover:no-underline">
-            What formats are recognized for file paths?
-          </AccordionTrigger>
-          <AccordionContent className="text-muted-foreground text-sm leading-relaxed pt-2">
-            The tool is designed to be flexible and recognizes paths provided in
-            various common ways just before a code block:
-            <ul className="list-disc pl-5 mt-2 space-y-1">
-              <li>Markdown Bold: `**path/to/your/file.ts**`</li>
-              <li>Markdown Bold+Ticks: `**\`path/to/your/file.ts\`**`</li>
-              <li>Markdown Ticks: `\`path/to/your/file.ts\``</li>
-              <li>
-                Code Comments: `// filename: path/to/file.py` or `# path:
-                path/to/file.css` (must be on its own line)
-              </li>
-              <li>
-                Simple Path Line: A line containing just `path/to/file.html`.
-              </li>
-              <li>
-                Code Fence Language Hint: If the language hint looks like a path
-                (contains `/` or `.`), e.g., `\`\`\`src/styles.css` (less
-                reliable, prefers explicit paths).
-              </li>
-            </ul>
-            Descriptions in parentheses like `**file.ts (updated)**` are
-            automatically ignored. Place the path on the line directly preceding
-            the ` ``` ` marker.
-          </AccordionContent>
-        </AccordionItem>
-        <AccordionItem value="item-2">
-          <AccordionTrigger className="text-start font-medium hover:no-underline">
-            How well does the import path transformation work?
-          </AccordionTrigger>
-          <AccordionContent className="text-muted-foreground text-sm leading-relaxed pt-2">
-            The automatic import path updating works for many standard
-            JavaScript/TypeScript imports (ESM `import ... from`, CJS
-            `require()`, dynamic `import()`) as well as Python imports (`import
-            module`, `from package import module`). It correctly changes the
-            *path string* within the import/require statement when the
-            corresponding filename or directory structure is transformed.
-            <br />
-            <br />
-            <strong>Limitations:</strong>
-            <ul className="list-disc pl-5 mt-2 space-y-1">
-              <li>
-                It <strong>does not</strong> rename the *imported variable*
-                itself (e.g., changing `import MyComponent` to `import
-                myComponent` if the file was renamed). You might need to adjust
-                variable names manually.
-              </li>
-              <li>
-                Complex relative path calculations (e.g.,
-                `../siblingDirectory/file`) when *directories* are renamed might
-                not always be perfectly resolved across all files. Review
-                imports if you significantly restructure directories.
-              </li>
-              <li>
-                While it handles basic Python imports, more complex Python
-                import patterns or other languages may require manual
-                adjustments.
-              </li>
-            </ul>
-          </AccordionContent>
-        </AccordionItem>
-        <AccordionItem value="item-3">
-          <AccordionTrigger className="text-start font-medium hover:no-underline">
-            What happens if the same file path appears multiple times?
-          </AccordionTrigger>
-          <AccordionContent className="text-muted-foreground text-sm leading-relaxed pt-2">
-            If the same file path is detected multiple times in the input, the
-            tool creates unique entries in the file tree. It appends a counter
-            to subsequent filenames (e.g., `utils.ts`, then `utils (1).ts`,
-            `utils (2).ts`, etc.) to avoid overwriting. Each will contain the
-            content from its respective code block in the input.
-          </AccordionContent>
-        </AccordionItem>
-        <AccordionItem value="item-4">
-          <AccordionTrigger className="text-start font-medium hover:no-underline">
-            Can I edit the code in the preview editor?
-          </AccordionTrigger>
-          <AccordionContent className="text-muted-foreground text-sm leading-relaxed pt-2">
-            No, the code editor panel on the right is <strong>read-only</strong>
-            . It's designed for quickly viewing the extracted code with syntax
-            highlighting and for copying or downloading individual files. To
-            make edits, please download the file or the full project ZIP and
-            open it in your preferred code editor or IDE.
-          </AccordionContent>
-        </AccordionItem>
-        <AccordionItem value="item-5">
-          <AccordionTrigger className="text-start font-medium hover:no-underline">
-            Is my data safe? Where is it stored?
-          </AccordionTrigger>
-          <AccordionContent className="text-muted-foreground text-sm leading-relaxed pt-2">
-            Your data is processed <strong>entirely within your browser</strong>
-            .
-            <ul className="list-disc pl-5 mt-2 space-y-1">
-              <li>
-                The text you paste and the extracted file structure are{" "}
-                <strong>not</strong> sent to any external server.
-              </li>
-              <li>
-                For convenience, the input text, extracted file list, and your
-                last transformation setting are saved in your browser's
-                localStorage. This means your work can persist if you refresh or
-                close the tab, but it remains local to your machine and browser
-                profile.
-              </li>
-            </ul>
-          </AccordionContent>
-        </AccordionItem>
-        <AccordionItem value="item-6">
-          <AccordionTrigger className="text-start font-medium hover:no-underline">
-            Where can I find the source code or report issues?
-          </AccordionTrigger>
-          <AccordionContent className="text-muted-foreground text-sm leading-relaxed pt-2">
-            This tool is open source! You can find the code repository, report
-            bugs, or suggest features on GitHub. Look for the GitHub icon link
-            in the site header. Contributions and feedback are welcome!
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
-    </section>
+    <div>
+      {questions.map(({ id, question, answer }) => (
+        <section
+          key={id}
+          id={id}
+          aria-labelledby={`${id}-title`}
+          className="scroll-mt-24 border-t py-7"
+        >
+          <h2 id={`${id}-title`} className="text-lg font-medium tracking-tight">
+            {question}
+          </h2>
+          <p className="mt-3 text-[15px] leading-7 text-muted-foreground">
+            {answer}
+          </p>
+          {id === "format" && (
+            <pre className="mt-4 overflow-x-auto rounded-xl border bg-card p-5 font-mono text-sm leading-6">
+              <code>
+                {
+                  '**src/hello.ts**\n```ts\nexport const hello = "Hello, world!";\n```'
+                }
+              </code>
+            </pre>
+          )}
+        </section>
+      ))}
+    </div>
   )
 }
